@@ -1,5 +1,5 @@
 /* Viewer: reads multiple JSON files and renders a table using keys:
-   RuleId, Description, Secret, Line, Date, Message, Link
+   RuleId, Description, Secret, Line, Date, Message, Meta
    Accepts arrays, single object, NDJSON; tolerant to common casing differences. */
 
 (() => {
@@ -101,12 +101,18 @@
     const Description = get('Description', 'description', 'rule_description', 'ruleDescription');
     const Secret = get('Secret', 'Match', 'match', 'offender', 'secret');
     // Line: prefer full line text if available, otherwise StartLine number
-    const Line = get('Line', 'line', 'LineText') || (item.StartLine ? String(item.StartLine) : '');
+    const Line = get('Line', 'line', 'LineText') || (get('StartLine', 'startLine', 'start_line') ? String(get('StartLine', 'startLine', 'start_line')) : '');
     const Date = get('Date', 'date', 'CommitDate', 'timestamp');
     const Message = get('Message', 'message');
     const Link = get('Link', 'link', 'URL', 'url');
 
-    return { RuleId, Description, Secret, Line, Date, Message, Link };
+    // Meta fields: Author, Email, StartLine, EndLine
+    const Author = get('Author', 'author');
+    const Email = get('Email', 'email');
+    const StartLine = get('StartLine', 'startLine', 'start_line') || (item.StartLine ? String(item.StartLine) : '');
+    const EndLine = get('EndLine', 'endLine', 'end_line') || (item.EndLine ? String(item.EndLine) : '');
+
+    return { RuleId, Description, Secret, Line, Date, Message, Link, Author, Email, StartLine, EndLine };
   }
 
   function escapeHtml(s) {
@@ -119,13 +125,13 @@
   function render(list) {
     tbody.innerHTML = '';
 
-    // Number of columns in the header (RuleId, Description, Secret, Line, Date, Message, Link)
+    // Number of columns in the header (RuleId, Description, Secret, Line, Date, Message, Meta)
     const headerColCount = 7;
 
     for (const it of list) {
       const row = extractRow(it);
 
-      // Main row (all fields except Link)
+      // Main row (all fields except Meta content is in the last column)
       const tr = document.createElement('tr');
 
       // RuleId
@@ -170,10 +176,27 @@
       tdMsg.textContent = row.Message || '';
       tr.appendChild(tdMsg);
 
-      // Keep Link column cell empty on main row (visual alignment with header)
-      const tdLinkEmpty = document.createElement('td');
-      tdLinkEmpty.textContent = '';
-      tr.appendChild(tdLinkEmpty);
+      // Meta column (Author, Email, StartLine-EndLine)
+      const tdMeta = document.createElement('td');
+      const metaParts = [];
+      if (row.Author) metaParts.push(`Author: ${row.Author}`);
+      if (row.Email) metaParts.push(`Email: ${row.Email}`);
+      if (row.StartLine || row.EndLine) {
+        const start = row.StartLine || '';
+        const end = row.EndLine || '';
+        const lines = start && end ? `${start} - ${end}` : (start || end);
+        metaParts.push(`Lines: ${lines}`);
+      }
+      if (metaParts.length) {
+        metaParts.forEach(p => {
+          const div = document.createElement('div');
+          div.textContent = p;
+          tdMeta.appendChild(div);
+        });
+      } else {
+        tdMeta.textContent = '';
+      }
+      tr.appendChild(tdMeta);
 
       tbody.appendChild(tr);
 
