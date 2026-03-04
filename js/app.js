@@ -38,7 +38,19 @@
     for (const f of files) {
       try {
         const txt = await f.text();
-        parsed.push(...parsePossibleJson(txt));
+        const found = parsePossibleJson(txt);
+        if (found && found.length) {
+          // annotate each item with the source JSON filename
+          for (const it of found) {
+            try {
+              // keep property enumerable so rendering code can see it via keys if needed
+              Object.defineProperty(it, '__sourceFile', { value: f.name, enumerable: true, configurable: true });
+            } catch {
+              it.__sourceFile = f.name;
+            }
+          }
+          parsed.push(...found);
+        }
       } catch (err) {
         setError(`Failed to read ${f.name}: ${err && err.message ? err.message : err}`);
       }
@@ -113,7 +125,10 @@
     const StartLine = get('StartLine', 'startLine', 'start_line') || (item.StartLine ? String(item.StartLine) : '');
     const EndLine = get('EndLine', 'endLine', 'end_line') || (item.EndLine ? String(item.EndLine) : '');
 
-    return { RuleId, Description, Secret, Line, Date, Message, Link, File, Author, Email, StartLine, EndLine };
+    // Source JSON filename (annotated during file read)
+    const SourceFile = item.__sourceFile || get('SourceFile', 'source', 'sourceFile');
+
+    return { RuleId, Description, Secret, Line, Date, Message, Link, File, Author, Email, StartLine, EndLine, SourceFile };
   }
 
   function escapeHtml(s) {
@@ -213,9 +228,23 @@
         code.textContent = row.File;
         tdFileSub.appendChild(label);
         tdFileSub.appendChild(code);
-      } else {
-        tdFileSub.textContent = '';
       }
+
+      // show source JSON filename (the file that was uploaded)
+      if (row.SourceFile) {
+        const divSrc = document.createElement('div');
+        divSrc.style.marginTop = '6px';
+        const sLabel = document.createElement('strong');
+        sLabel.textContent = 'Source JSON: ';
+        const span = document.createElement('span');
+        span.textContent = row.SourceFile;
+        divSrc.appendChild(sLabel);
+        divSrc.appendChild(span);
+        tdFileSub.appendChild(divSrc);
+      }
+
+      // if neither File nor SourceFile present, leave cell blank
+      if (!row.File && !row.SourceFile) tdFileSub.textContent = '';
 
       trFileSub.appendChild(tdFileSub);
       tbody.appendChild(trFileSub);
