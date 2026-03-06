@@ -1,5 +1,15 @@
 <Project Sdk="Microsoft.VisualStudio.JavaScript.Sdk/1.0.2752196">
+  <PropertyGroup>
+    <BuildCommand>npm run build</BuildCommand>
+    <BuildOutputFolder>Dist</BuildOutputFolder>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Remove="package.json" />
+  </ItemGroup>
   <ItemGroup>
     <Folder Include="css\" />
+  </ItemGroup>
+  <ItemGroup>
+    <TypeScriptConfiguration Include="package.json" />
   </ItemGroup>
 </Project>
