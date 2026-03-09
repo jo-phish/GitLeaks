@@ -10,6 +10,9 @@
   const summary = document.getElementById('summary');
   const errorsEl = document.getElementById('errors');
 
+  // optional regex filter input (add <input id="lineFilter"> to your HTML to enable)
+  const lineFilter = document.getElementById('lineFilter');
+
   // max visible lines for Secret and Line fields before truncation
   const MAX_VISIBLE_LINES = 10;
   const LINE_HEIGHT_EM = 1.2; // used to compute collapsed max-height
@@ -18,6 +21,7 @@
 
   input.addEventListener('change', handleFiles);
   clearBtn.addEventListener('click', clearAll);
+  if (lineFilter) lineFilter.addEventListener('input', applyFilterAndRender);
 
   function setError(msg = '') {
     errorsEl.textContent = msg;
@@ -29,6 +33,7 @@
     tableSection.classList.add('hidden');
     summary.textContent = 'No files loaded';
     input.value = '';
+    if (lineFilter) lineFilter.value = '';
     setError();
   }
 
@@ -66,7 +71,7 @@
     }
 
     items = items.concat(parsed);
-    render(items);
+    applyFilterAndRender();
   }
 
   function parsePossibleJson(text) {
@@ -188,6 +193,33 @@
     }
 
     return pre;
+  }
+
+  // compute filtered items using the optional regex from the lineFilter input
+  function getFilteredItems() {
+    const pattern = lineFilter && lineFilter.value ? lineFilter.value.trim() : '';
+    if (!pattern) {
+      setError();
+      return items.slice();
+    }
+
+    try {
+      const re = new RegExp(pattern);
+      setError();
+      return items.filter(it => {
+        const row = extractRow(it);
+        const line = row.Line || '';
+        return re.test(String(line));
+      });
+    } catch (err) {
+      setError(`Invalid regex: ${err && err.message ? err.message : err}`);
+      return items.slice();
+    }
+  }
+
+  function applyFilterAndRender() {
+    const filtered = getFilteredItems();
+    render(filtered);
   }
 
   function render(list) {
