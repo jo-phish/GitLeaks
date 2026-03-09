@@ -15,3 +15,9 @@ Usage
 •	Add an input element in the page, for example: <input id="lineFilter" placeholder="Filter Line by regex" />
 •	Type any JavaScript regular expression (without delimiters), e.g. password|secret or ^\s*const\s+TOKEN to filter shown rows by the Line field.
 
+0.2.0
+	Summary of changes
+•	Added a multiple-select dropdown hook ruleIdFilter (use <select id="ruleIdFilter" multiple></select> in your HTML).
+•	Implemented updateRuleIdOptions() to populate options from loaded items and preserve previous selections.
+•	Combined RuleId selection and Line regex in getFilteredItems() so both filters apply (AND).
+•	Wire up events so the dropdown updates rendering and stays populated across uploads.

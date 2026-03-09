@@ -10,8 +10,11 @@
   const summary = document.getElementById('summary');
   const errorsEl = document.getElementById('errors');
 
-  // optional regex filter input (add <input id="lineFilter"> to your HTML to enable)
+  // optional DOM hooks (add these to your HTML to enable)
+  // <input id="lineFilter" placeholder="Filter Line by regex" />
+  // <select id="ruleIdFilter" multiple></select>
   const lineFilter = document.getElementById('lineFilter');
+  const ruleIdFilter = document.getElementById('ruleIdFilter');
 
   // max visible lines for Secret and Line fields before truncation
   const MAX_VISIBLE_LINES = 10;
@@ -22,6 +25,7 @@
   input.addEventListener('change', handleFiles);
   clearBtn.addEventListener('click', clearAll);
   if (lineFilter) lineFilter.addEventListener('input', applyFilterAndRender);
+  if (ruleIdFilter) ruleIdFilter.addEventListener('change', applyFilterAndRender);
 
   function setError(msg = '') {
     errorsEl.textContent = msg;
@@ -34,6 +38,7 @@
     summary.textContent = 'No files loaded';
     input.value = '';
     if (lineFilter) lineFilter.value = '';
+    if (ruleIdFilter) ruleIdFilter.innerHTML = '';
     setError();
   }
 
@@ -71,6 +76,7 @@
     }
 
     items = items.concat(parsed);
+    updateRuleIdOptions();
     applyFilterAndRender();
   }
 
@@ -195,26 +201,72 @@
     return pre;
   }
 
-  // compute filtered items using the optional regex from the lineFilter input
-  function getFilteredItems() {
-    const pattern = lineFilter && lineFilter.value ? lineFilter.value.trim() : '';
-    if (!pattern) {
-      setError();
-      return items.slice();
+  // populate ruleIdFilter <select> with unique RuleId values from items
+  function updateRuleIdOptions() {
+    if (!ruleIdFilter) return;
+
+    // remember previous selection to preserve when adding more items
+    const prevSelected = new Set(Array.from(ruleIdFilter.selectedOptions).map(o => o.value));
+
+    const ids = new Set();
+    for (const it of items) {
+      const r = extractRow(it).RuleId;
+      ids.add(String(r == null ? '' : r));
     }
 
-    try {
-      const re = new RegExp(pattern);
-      setError();
-      return items.filter(it => {
-        const row = extractRow(it);
-        const line = row.Line || '';
-        return re.test(String(line));
-      });
-    } catch (err) {
-      setError(`Invalid regex: ${err && err.message ? err.message : err}`);
-      return items.slice();
+    const sorted = Array.from(ids).sort((a, b) => {
+      // keep empty string last
+      if (a === '' && b !== '') return 1;
+      if (b === '' && a !== '') return -1;
+      return a.localeCompare(b);
+    });
+
+    ruleIdFilter.innerHTML = '';
+    for (const id of sorted) {
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = id || '(empty)';
+      if (prevSelected.has(id)) opt.selected = true;
+      ruleIdFilter.appendChild(opt);
     }
+  }
+
+  // compute filtered items using the optional regex from the lineFilter input and selected RuleIds
+  function getFilteredItems() {
+    const pattern = lineFilter && lineFilter.value ? lineFilter.value.trim() : '';
+    const selectedRuleIds = ruleIdFilter ? Array.from(ruleIdFilter.selectedOptions).map(o => o.value) : [];
+
+    let re = null;
+    if (pattern) {
+      try {
+        re = new RegExp(pattern);
+        setError();
+      } catch (err) {
+        setError(`Invalid regex: ${err && err.message ? err.message : err}`);
+        // if regex invalid show no filtering by regex but still apply ruleId filter
+        re = null;
+      }
+    } else {
+      setError();
+    }
+
+    return items.filter(it => {
+      const row = extractRow(it);
+      const line = String(row.Line || '');
+      const ruleId = String(row.RuleId || '');
+
+      // ruleId filter (if any selection present)
+      if (selectedRuleIds && selectedRuleIds.length) {
+        if (!selectedRuleIds.includes(ruleId)) return false;
+      }
+
+      // regex filter (if valid)
+      if (re) {
+        return re.test(line);
+      }
+
+      return true;
+    });
   }
 
   function applyFilterAndRender() {
@@ -246,7 +298,7 @@
 
       // Secret
       const tdSecret = document.createElement('td');
-        tdSecret.style.minWidth = '15em';
+      tdSecret.style.minWidth = '15em';
       if (row.Secret) {
         const preContainer = createTruncatedPre(row.Secret);
         tdSecret.appendChild(preContainer);
