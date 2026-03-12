@@ -364,3 +364,5 @@ FodyWeavers.xsd
 testdata20.json
 testdata1.json
 Dist/
+/index1.html
+/js/app1.js

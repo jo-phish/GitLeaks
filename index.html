@@ -15,6 +15,7 @@
             --th-bg: #111827;
             --row-hover: #0e1722;
             --code-bg: #081018;
+            --test: #ff0000;
         }
 
         html, body {
@@ -149,7 +150,7 @@
             text-decoration: underline;
         }
 
-        a:visited{
+        a:visited {
             color: #69e03c;
         }
 
@@ -209,11 +210,12 @@
                 <thead>
                     <tr>
                         <th>RuleId
-                        <div><select id="ruleIdFilter" multiple></select></div>
+                        <div id="ruleIdFilter" style="position:relative; display:inline-block;"></div>
                         </th>
                         <th>Description</th>
                         <th>Secret</th>
-                        <th>Line<div class="lineFilterDiv"><input id="lineFilter" placeholder="Filter Line by regex" /></div>
+                        <th>Line
+                        <div class="lineFilterDiv"><input id="lineFilter" placeholder="Filter Line by regex" /></div>
                         </th>
                         <th>Date</th>
                         <th>Message</th>

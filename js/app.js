@@ -12,9 +12,9 @@
 
   // optional DOM hooks (add these to your HTML to enable)
   // <input id="lineFilter" placeholder="Filter Line by regex" />
-  // <select id="ruleIdFilter" multiple></select>
+  // <div id="ruleIdFilter" style="position:relative; display:inline-block;"></div>
   const lineFilter = document.getElementById('lineFilter');
-  const ruleIdFilter = document.getElementById('ruleIdFilter');
+  const ruleIdFilter = document.getElementById('ruleIdFilter'); // container for custom checklistbox
 
   // max visible lines for Secret and Line fields before truncation
   const MAX_VISIBLE_LINES = 10;
@@ -25,7 +25,7 @@
   input.addEventListener('change', handleFiles);
   clearBtn.addEventListener('click', clearAll);
   if (lineFilter) lineFilter.addEventListener('input', applyFilterAndRender);
-  if (ruleIdFilter) ruleIdFilter.addEventListener('change', applyFilterAndRender);
+  if (ruleIdFilter) initRuleIdWidget(ruleIdFilter);
 
   function setError(msg = '') {
     errorsEl.textContent = msg;
@@ -38,7 +38,7 @@
     summary.textContent = 'No files loaded';
     input.value = '';
     if (lineFilter) lineFilter.value = '';
-    if (ruleIdFilter) ruleIdFilter.innerHTML = '';
+    if (ruleIdFilter && ruleIdFilter._clear) ruleIdFilter._clear();
     setError();
   }
 
@@ -201,12 +201,190 @@
     return pre;
   }
 
-  // populate ruleIdFilter <select> with unique RuleId values from items
+  // ----- custom checklistbox (Windows-like) widget for RuleId -----
+  function initRuleIdWidget(container) {
+    container.innerHTML = '';
+    // ensure container has inline-block behaviour (index.html already sets positioning)
+    container.style.display = 'inline-block';
+    container.style.verticalAlign = 'middle';
+    container.style.fontSize = '13px';
+
+    // outer box that visually resembles a Windows CheckListBox
+    const box = document.createElement('div');
+    box.setAttribute('role', 'group');
+    box.style.background = '#000';
+    box.style.color = '#000';
+    box.style.border = '1px solid #9aa6b2';
+    box.style.borderRadius = '4px';
+    box.style.boxShadow = 'inset 0 1px 0 rgba(255,255,255,0.06)';
+    box.style.padding = '6px';
+    box.style.minWidth = '12em';
+    box.style.maxHeight = '160px';
+    box.style.overflow = 'auto';
+    box.style.boxSizing = 'content-box';
+    box.style.fontFamily = 'system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial';
+    box.style.backgroundImage = 'linear-gradient(#ffffff, #f3f6f9)';
+
+    // top controls row (Select all / Clear)
+    const controls = document.createElement('div');
+    controls.style.display = 'flex';
+    controls.style.justifyContent = 'space-between';
+    controls.style.marginBottom = '6px';
+    controls.style.fontSize = '12px';
+    controls.style.color = '#00FF00';
+
+    const selectAll = document.createElement('a');
+    selectAll.href = '#';
+    selectAll.textContent = 'Select all';
+    selectAll.style.color = '#0066cc';
+    selectAll.style.textDecoration = 'none';
+
+    const clearSel = document.createElement('a');
+    clearSel.href = '#';
+    clearSel.textContent = 'Clear';
+    clearSel.style.color = '#0066cc';
+    clearSel.style.textDecoration = 'none';
+
+    controls.appendChild(selectAll);
+    controls.appendChild(clearSel);
+    box.appendChild(controls);
+
+    // container for items
+    const list = document.createElement('div');
+    list.className = 'ruleid-checklist';
+      list.style.display = 'block';
+      list.style.background = '#f3f6f9';
+      list.style.position = 'absolute';
+      list.style.left = '0px';
+      list.style.width = '100%';
+      list.style.zIndex = '1000';
+
+    box.appendChild(list);
+    container.appendChild(box);
+
+    // helpers stored on container for outside interaction
+    container._list = list;
+
+    container._getSelected = () => {
+      return Array.from(list.querySelectorAll('input[type=checkbox]:checked')).map(i => i.value);
+    };
+
+    container._clear = () => {
+      list.innerHTML = '';
+      //list.appendChild(controls);
+    };
+
+    // Set options (itemsArr = array of RuleId strings), prevSelectedSet to preserve
+    container._setOptions = (itemsArr, prevSelectedSet) => {
+      // reset list and re-append controls
+      list.innerHTML = '';
+      //list.appendChild(controls);
+
+      for (const id of itemsArr) {
+        const idStr = String(id == null ? '' : id);
+
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.gap = '8px';
+        row.style.padding = '0'; //testing zero padding for tighter look; can adjust as needed
+        row.style.borderRadius = '0px';
+        row.style.cursor = 'default';
+
+        // hover styles
+        row.addEventListener('mouseenter', () => { row.style.background = '#e8f0ff'; });
+        row.addEventListener('mouseleave', () => {
+          // keep a checked row with subtle highlight (like selected)
+          const cb = row.querySelector('input[type=checkbox]');
+          row.style.background = cb && cb.checked ? '#cfe4ff' : 'transparent';
+        });
+
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.value = idStr;
+        cb.id = `ruleid-${Math.random().toString(36).slice(2, 9)}`;
+        cb.style.margin = '0';
+        cb.style.width = '16px';
+        cb.style.height = '16px';
+        cb.style.cursor = 'pointer';
+
+        if (prevSelectedSet && prevSelectedSet.has(idStr)) {
+          cb.checked = true;
+          row.style.background = '#f3f6f9';
+        }
+
+        cb.addEventListener('change', () => {
+          row.style.background = cb.checked ? '#cfe4ff' : 'transparent';
+          applyFilterAndRender();
+        });
+
+        const lbl = document.createElement('label');
+        lbl.htmlFor = cb.id;
+        lbl.textContent = idStr || '(empty)';
+        lbl.style.cursor = 'pointer';
+        lbl.style.flex = '1';
+        lbl.style.userSelect = 'none';
+        lbl.style.color = 'var(--panel)';
+        lbl.style.background = 'transparent';
+        lbl.style.borderRadius = '0px';
+        lbl.style.border = 'none';
+        lbl.style.padding = '0px';
+        lbl.style.overflow = 'hidden';
+        lbl.style.textOverflow = 'ellipsis';
+        lbl.style.textWrap = 'nowrap';
+        lbl.style.maxWidth = '12em';
+
+
+        // clicking label toggles checkbox
+        lbl.addEventListener('click', (e) => {
+          e.preventDefault();
+          cb.checked = !cb.checked;
+          cb.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+
+        row.appendChild(cb);
+        row.appendChild(lbl);
+        list.appendChild(row);
+      }
+    };
+
+    // close dropdown on outside click
+    document.addEventListener('click', () => {
+       list.style.display = 'none';
+    });
+
+    // toggle dropdown on box click (but not when clicking inside the dropdown itself)
+    controls.addEventListener('click', (e) => {
+          e.stopPropagation();
+          list.style.display = list.style.display === 'block' ? 'none' : 'block';
+    });
+
+      // keep dropdown open when clicking inside the list
+    box.addEventListener('click', (e) => {
+          e.stopPropagation();
+          list.style.display = 'block';
+    });
+
+    // control link handlers
+    selectAll.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      list.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = true; cb.dispatchEvent(new Event('change')); });
+    });
+
+    clearSel.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      list.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = false; cb.dispatchEvent(new Event('change')); });
+    });
+  }
+
+  // populate ruleIdFilter widget (if present) with unique RuleId values from items
   function updateRuleIdOptions() {
-    if (!ruleIdFilter) return;
+    if (!ruleIdFilter || !ruleIdFilter._setOptions) return;
 
     // remember previous selection to preserve when adding more items
-    const prevSelected = new Set(Array.from(ruleIdFilter.selectedOptions).map(o => o.value));
+    const prevSelected = new Set(ruleIdFilter._getSelected ? ruleIdFilter._getSelected() : []);
 
     const ids = new Set();
     for (const it of items) {
@@ -221,20 +399,13 @@
       return a.localeCompare(b);
     });
 
-    ruleIdFilter.innerHTML = '';
-    for (const id of sorted) {
-      const opt = document.createElement('option');
-      opt.value = id;
-      opt.textContent = id || '(empty)';
-      if (prevSelected.has(id)) opt.selected = true;
-      ruleIdFilter.appendChild(opt);
-    }
+    ruleIdFilter._setOptions(sorted, prevSelected);
   }
 
   // compute filtered items using the optional regex from the lineFilter input and selected RuleIds
   function getFilteredItems() {
     const pattern = lineFilter && lineFilter.value ? lineFilter.value.trim() : '';
-    const selectedRuleIds = ruleIdFilter ? Array.from(ruleIdFilter.selectedOptions).map(o => o.value) : [];
+    const selectedRuleIds = ruleIdFilter && ruleIdFilter._getSelected ? ruleIdFilter._getSelected() : [];
 
     let re = null;
     if (pattern) {
@@ -376,6 +547,21 @@
         divSrc.appendChild(sLabel);
         divSrc.appendChild(span);
         tdFileSub.appendChild(divSrc);
+      }
+        //add Repository Link
+      if (row.Link) {
+          const divRepo = document.createElement('div');
+          divRepo.style.marginTop = '6px';
+          const rLabel = document.createElement('strong');
+          rLabel.textContent = 'Repository Link: ';
+          const a = document.createElement('a');
+          a.href = row.Link.replace(/(.*)blob.*/,"$1");
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.textContent = 'RepoLink';
+          divRepo.appendChild(rLabel);
+          divRepo.appendChild(a);
+          tdFileSub.appendChild(divRepo);
       }
 
       // if neither File nor SourceFile present, leave cell blank
